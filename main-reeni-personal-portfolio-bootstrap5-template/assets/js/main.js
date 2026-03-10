@@ -412,24 +412,99 @@
     },
 
     radialProgress: function () {
-      $("svg.radial-progress").each(function (index, value) {
-        $(this).find($("circle.bar--animated")).removeAttr("style");
-        // Get element in Veiw port
-        var elementTop = $(this).offset().top;
-        var elementBottom = elementTop + $(this).outerHeight();
-        var viewportTop = $(window).scrollTop();
-        var viewportBottom = viewportTop + $(window).height();
+      function setupRadialProgress(element) {
+        var $svg = $(element);
+        var $circle = $svg.find("circle.bar--animated");
+        var $counter = $svg.find(".countervalue");
+        var radius = parseFloat($circle.attr("r"));
 
-        if (elementBottom > viewportTop && elementTop < viewportBottom) {
-          var percent = $(value).data("countervalue");
-          var radius = $(this).find($("circle.bar--animated")).attr("r");
-          var circumference = 2 * Math.PI * radius;
-          var strokeDashOffset =
-            circumference - (percent * circumference) / 100;
-          $(this)
-            .find($("circle.bar--animated"))
-            .animate({ "stroke-dashoffset": strokeDashOffset }, 2800);
+        if (!$circle.length || Number.isNaN(radius)) {
+          return;
         }
+
+        var circumference = 2 * Math.PI * radius;
+
+        $circle.css({
+          "stroke-dasharray": circumference,
+          "stroke-dashoffset": circumference,
+        });
+
+        if ($counter.length) {
+          $counter.text("0%");
+        }
+      }
+
+      function animateRadialProgress(element) {
+        var $svg = $(element);
+        var $circle = $svg.find("circle.bar--animated");
+        var $counter = $svg.find(".countervalue");
+
+        if (!$circle.length || $svg.data("radial-progress-animated")) {
+          return;
+        }
+
+        var percent = parseFloat($svg.data("countervalue"));
+        var radius = parseFloat($circle.attr("r"));
+
+        if (Number.isNaN(percent) || Number.isNaN(radius)) {
+          return;
+        }
+
+        var circumference = 2 * Math.PI * radius;
+        var strokeDashOffset =
+          circumference - (percent * circumference) / 100;
+
+        $circle.stop(true, true);
+        $circle.css({
+          "stroke-dasharray": circumference,
+          "stroke-dashoffset": circumference,
+        });
+        $circle.animate({ "stroke-dashoffset": strokeDashOffset }, 2800);
+
+        if ($counter.length) {
+          $counter.text(percent + "%");
+        }
+
+        $svg.data("radial-progress-animated", true);
+      }
+
+      var radialProgressElements = document.querySelectorAll(
+        "svg.radial-progress"
+      );
+
+      if (!radialProgressElements.length) {
+        return;
+      }
+
+      radialProgressElements.forEach(function (element) {
+        setupRadialProgress(element);
+      });
+
+      if (!("IntersectionObserver" in window)) {
+        radialProgressElements.forEach(function (element) {
+          animateRadialProgress(element);
+        });
+        return;
+      }
+
+      var observer = new IntersectionObserver(
+        function (entries, obs) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) {
+              return;
+            }
+
+            animateRadialProgress(entry.target);
+            obs.unobserve(entry.target);
+          });
+        },
+        {
+          threshold: 0.35,
+        }
+      );
+
+      radialProgressElements.forEach(function (element) {
+        observer.observe(element);
       });
     },
 
@@ -684,44 +759,54 @@
     },
 
     odoMeter: function () {
+      function triggerOdometer(element) {
+        var $element = $(element);
 
-      $(document).ready(function () {
-        function isInViewport(element) {
-          const rect = element.getBoundingClientRect();
-          return (
-            rect.top >= 0 &&
-            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight)
-          );
+        if ($element.hasClass("odometer-triggered")) {
+          return;
         }
 
-        function triggerOdometer(element) {
-          const $element = $(element);
-          if (!$element.hasClass('odometer-triggered')) {
-            const countNumber = $element.attr('data-count');
-            $element.html(countNumber);
-            $element.addClass('odometer-triggered'); // Add a class to prevent re-triggering
-          }
-        }
+        var countNumber = $element.attr("data-count");
+        $element.html(countNumber);
+        $element.addClass("odometer-triggered");
+      }
 
-        function handleOdometer() {
-          $('.odometer').each(function () {
-            if (isInViewport(this)) {
-              triggerOdometer(this);
-            }
-          });
-        }
+      var odometerElements = document.querySelectorAll(".odometer");
 
-        // Check on page load
-        handleOdometer();
+      if (!odometerElements.length) {
+        return;
+      }
 
-        // Check on scroll
-        $(window).on('scroll', function () {
-          handleOdometer();
-        });
-
+      odometerElements.forEach(function (element) {
+        element.innerHTML = "00";
       });
 
+      if (!("IntersectionObserver" in window)) {
+        odometerElements.forEach(function (element) {
+          triggerOdometer(element);
+        });
+        return;
+      }
 
+      var observer = new IntersectionObserver(
+        function (entries, obs) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) {
+              return;
+            }
+
+            triggerOdometer(entry.target);
+            obs.unobserve(entry.target);
+          });
+        },
+        {
+          threshold: 0.35,
+        }
+      );
+
+      odometerElements.forEach(function (element) {
+        observer.observe(element);
+      });
     },
 
     titleSplit_2: function(){
